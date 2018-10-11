@@ -1,3 +1,4 @@
+#!/bin/bash
 # Get original zip file
 wget http://www.cs.uic.edu/~liub/FBS/CustomerReviewData.zip
 unzip CustomerReviewData.zip

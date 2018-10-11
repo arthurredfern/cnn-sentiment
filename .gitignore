@@ -112,3 +112,4 @@ dmypy.json
 
 # Data files
 data/raw
+data/clean

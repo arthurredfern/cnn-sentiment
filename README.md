@@ -1,6 +1,6 @@
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-# Sentence classification with CNNs
+# Sentiment classification with CNNs
 
 :warning: Work in progress :warning:
 

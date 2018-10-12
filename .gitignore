@@ -110,6 +110,8 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+.idea/
+
 # Data files
 data/raw
 data/clean

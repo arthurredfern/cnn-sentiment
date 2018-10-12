@@ -20,6 +20,11 @@ clean_data_path = os.path.join(data_path, 'clean')
 PAD = '<PAD>'
 UNK = '<UNK>'
 
+# Serialization strings
+LEN_FEAT_NAME = 'length'
+LABEL_FEAT_NAME = 'label'
+WORDS_FEAT_NAME = 'words'
+
 # Source: http://www.wildml.com/2016/08/rnns-in-tensorflow-a-practical-guide-and-undocumented-features/
 # Retrieved on Oct 12, 2018
 def make_example(sequence, label):
@@ -31,11 +36,11 @@ def make_example(sequence, label):
     """
     ex = tf.train.SequenceExample()
     # Context: sequence length and label
-    ex.context.feature['length'].int64_list.value.append(len(sequence))
-    ex.context.feature['label'].int64_list.value.append(label)
+    ex.context.feature[LEN_FEAT_NAME].int64_list.value.append(len(sequence))
+    ex.context.feature[LABEL_FEAT_NAME].int64_list.value.append(label)
 
     # Feature lists: words
-    fl_tokens = ex.feature_lists.feature_list['words']
+    fl_tokens = ex.feature_lists.feature_list[WORDS_FEAT_NAME]
     for word in sequence:
         fl_tokens.feature.add().int64_list.value.append(word)
 
@@ -158,7 +163,6 @@ def serialize_data(data_file, labels_file, index_file):
             int_words = [word_to_id.get(w, word_to_id[UNK]) for w in words]
             data.append(int_words)
 
-    labels = []
     with open(labels_file) as file:
         labels = [int(line) for line in file]
 
@@ -177,8 +181,53 @@ def serialize_data(data_file, labels_file, index_file):
     save_to_tfrecord(data[:train_end_idx], labels[:train_end_idx], 'train')
     save_to_tfrecord(data[train_end_idx:], labels[train_end_idx:], 'test')
 
+def parse_example(example_proto):
+    """Parses a serialized SequenceExample read from a TFRecord.
+    Args:
+        example_proto: str, a single binary serialized SequenceExample proto.
+    Returns:
+        length: 1-D Tensor of length 1
+        label: 1-D Tensor of length 1
+        words: 1-D Tensor of variable length
+    """
+    # Context: sequence length and label
+    # We parse these as rank 1 tensors (instead of rank 0)
+    # so they can be batched
+    context_features = {
+        LEN_FEAT_NAME: tf.FixedLenFeature([1], dtype=tf.int64),
+        LABEL_FEAT_NAME: tf.FixedLenFeature([1], dtype=tf.int64)
+    }
+
+    # Feature lists: words
+    sequence_features = {
+        WORDS_FEAT_NAME: tf.FixedLenSequenceFeature([], dtype=tf.int64)
+    }
+
+    context, sequence = tf.parse_single_sequence_example(
+        example_proto,
+        context_features,
+        sequence_features
+    )
+
+    length = context[LEN_FEAT_NAME]
+    label = context[LABEL_FEAT_NAME]
+    words = sequence[WORDS_FEAT_NAME]
+
+    return length, label, words
+
+def make_dataset(tfrecord_file, batch_size):
+    dataset = tf.data.TFRecordDataset(tfrecord_file)
+    dataset = dataset.map(parse_example)
+    padded_shapes = (
+        tf.TensorShape([1]),  # length
+        tf.TensorShape([1]),  # label
+        tf.TensorShape([None])  # words
+    )
+    dataset = dataset.padded_batch(batch_size, padded_shapes)
+
+    return dataset
+
 if __name__ == '__main__':
     index_file = load_embeddings()
     data_file, labels_file = clean_data()
     serialize_data(data_file, labels_file, index_file)
-

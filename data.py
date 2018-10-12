@@ -10,6 +10,7 @@ from shutil import rmtree
 import numpy as np
 from collections import defaultdict
 import pickle
+import tensorflow as tf
 
 data_path = './data'
 embeddings_path = './embeddings'
@@ -19,17 +20,52 @@ clean_data_path = os.path.join(data_path, 'clean')
 PAD = '<PAD>'
 UNK = '<UNK>'
 
-def remove_dir(dir):
-    if os.path.exists(dir):
-        rmtree(dir)
-    os.mkdir(dir)
+# Source: http://www.wildml.com/2016/08/rnns-in-tensorflow-a-practical-guide-and-undocumented-features/
+# Retrieved on Oct 12, 2018
+def make_example(sequence, label):
+    """Creates a tf.train.SequenceExample to be written in a TFRecord
+    Args:
+        sequence (list): contains word IDs (int) in a sequence
+        label (int): the label of the sequence
+    Returns: a tf.train.SequenceExample
+    """
+    ex = tf.train.SequenceExample()
+    # Context: sequence length and label
+    ex.context.feature['length'].int64_list.value.append(len(sequence))
+    ex.context.feature['label'].int64_list.value.append(label)
+
+    # Feature lists: words
+    fl_tokens = ex.feature_lists.feature_list['words']
+    for word in sequence:
+        fl_tokens.feature.add().int64_list.value.append(word)
+
+    return ex
+
+def save_to_tfrecord(data, labels, split):
+    """Writes a TFRecord containing instances of SequenceExample
+    Args:
+        data (list): contains lists of word IDs (int), one per example
+        labels (list): contains labels (int), one per example
+    """
+    tfrecord_file = os.path.join(clean_data_path, split + '.tfrecord')
+    writer = tf.python_io.TFRecordWriter(tfrecord_file)
+
+    for sequence, label in zip(data, labels):
+        example = make_example(sequence, label)
+        writer.write(example.SerializeToString())
+
+    writer.close()
+    print('Saved TFRecord to {}'.format(tfrecord_file))
 
 def clean_data():
+    print('Cleaning data...')
     files = listdir(raw_data_path)
     files.remove('Readme.txt')
 
     # Remove any exported clean files if they exist
-    remove_dir(clean_data_path)
+    if os.path.exists(clean_data_path):
+        rmtree(clean_data_path)
+    os.mkdir(clean_data_path)
 
     omit_symbols = ('*', '[t]', '##')
 
@@ -40,7 +76,7 @@ def clean_data():
 
     for file in files:
         with open(os.path.join(raw_data_path, file)) as in_file:
-            for line in in_file:
+            for i, line in enumerate(in_file):
                 # Omit comment lines or review titles
                 if len(line) < 2 or line.startswith(omit_symbols):
                     continue
@@ -65,6 +101,9 @@ def clean_data():
                 data += review
                 labels += str(sentiment) + '\n'
 
+                if i == 10:
+                    break
+
     data_file = os.path.join(clean_data_path, 'data.txt')
     with open(data_file, 'w') as out_file:
         out_file.write(data)
@@ -74,6 +113,8 @@ def clean_data():
     with open(labels_file, 'w') as out_file:
         out_file.write(labels)
     print('Saved {}'.format(labels_file))
+
+    return data_file, labels_file
 
 def load_embeddings():
     embeddings_file_base = 'glove.6B.50d'
@@ -101,11 +142,43 @@ def load_embeddings():
     print('Saved {}'.format(embeddings_file_base + '.npy'))
 
     # Serialize dictionary
-    vocab_filename = embeddings_file_base + '.index'
-    pickle.dump(dict(word_to_id),
-                open(os.path.join(embeddings_path, vocab_filename), 'wb'))
-    print('Saved {}'.format(vocab_filename))
+    index_name = embeddings_file_base + '.index'
+    index_file = os.path.join(embeddings_path, index_name)
+    pickle.dump(dict(word_to_id), open(index_file, 'wb'))
+    print('Saved {}'.format(index_name))
+
+    return index_file
+
+def serialize_data(data_file, labels_file, index_file):
+    word_to_id = pickle.load(open(index_file, 'rb'))
+    data = []
+    with open(data_file) as file:
+        for line in file:
+            words = line.split()
+            int_words = [word_to_id.get(w, word_to_id[UNK]) for w in words]
+            data.append(int_words)
+
+    labels = []
+    with open(labels_file) as file:
+        labels = [int(line) for line in file]
+
+    # Shuffle samples
+    np.random.seed(42)
+    idx = np.random.choice(np.arange(start=0, stop=len(data)),
+                                     size=len(data), replace=True)
+    data = [data[i] for i in idx]
+    labels = [labels[i] for i in idx]
+
+    # Split into train and test
+    train_split = 0.8
+    train_end_idx = int(train_split * len(data))
+
+    # Serialize splits
+    save_to_tfrecord(data[:train_end_idx], labels[:train_end_idx], 'train')
+    save_to_tfrecord(data[train_end_idx:], labels[train_end_idx:], 'test')
 
 if __name__ == '__main__':
-    clean_data()
-    load_embeddings()
+    index_file = load_embeddings()
+    data_file, labels_file = clean_data()
+    serialize_data(data_file, labels_file, index_file)
+

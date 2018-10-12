@@ -114,3 +114,6 @@ dmypy.json
 data/raw
 data/clean
 embeddings/*.txt
+embeddings/*.npy
+embeddings/*.index
+

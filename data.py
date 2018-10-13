@@ -63,6 +63,9 @@ def save_to_tfrecord(data, labels, split):
     print('Saved TFRecord to {}'.format(tfrecord_file))
 
 def clean_data():
+    """Read the raw Customer Review dataset and export a clean file with
+    reviews and binary labels.
+    """
     print('Cleaning data...')
     files = listdir(raw_data_path)
     files.remove('Readme.txt')
@@ -122,6 +125,7 @@ def clean_data():
     return data_file, labels_file
 
 def load_embeddings():
+    """Load GloVe embeddings and export numpy array and word index (as dict)"""
     embeddings_file_base = 'glove.6B.50d'
     embeddings_file = embeddings_file_base + '.txt'
 
@@ -155,6 +159,16 @@ def load_embeddings():
     return index_file
 
 def serialize_data(data_file, labels_file, index_file):
+    """Read clean data and labels file and export TFRecords containing
+    sentences as sequences of word IDs, review label and length.
+    The data is shuffled and split into training and test sets. Each set is
+    exported as a TFRecord.
+    Args:
+        data_file: str, path to the clean data file
+        labels_file: str, path to the labels file
+        index_file: str, path to the serialized index written by
+            load_embeddings()
+    """
     word_to_id = pickle.load(open(index_file, 'rb'))
     data = []
     with open(data_file) as file:
@@ -182,7 +196,7 @@ def serialize_data(data_file, labels_file, index_file):
     save_to_tfrecord(data[train_end_idx:], labels[train_end_idx:], 'test')
 
 def parse_example(example_proto):
-    """Parses a serialized SequenceExample read from a TFRecord.
+    """Parse a serialized SequenceExample read from a TFRecord.
     Args:
         example_proto: str, a single binary serialized SequenceExample proto.
     Returns:
@@ -216,6 +230,13 @@ def parse_example(example_proto):
     return length, label, words
 
 def make_dataset(tfrecord_file, batch_size):
+    """Create a batched Dataset from a TFRecord file
+    Args:
+        tfrecord_file: str, path to the TFRecord file
+        batch_size: int, the size of each mini-batch
+    Returns:
+        A tf.data.TFRecordDataset
+    """
     dataset = tf.data.TFRecordDataset(tfrecord_file)
     dataset = dataset.map(parse_example)
     padded_shapes = (

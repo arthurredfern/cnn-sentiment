@@ -37,7 +37,7 @@ def make_example(sequence, label):
     ex = tf.train.SequenceExample()
     # Context: sequence length and label
     ex.context.feature[LEN_FEAT_NAME].int64_list.value.append(len(sequence))
-    ex.context.feature[LABEL_FEAT_NAME].int64_list.value.append(label)
+    ex.context.feature[LABEL_FEAT_NAME].float_list.value.append(label)
 
     # Feature lists: words
     fl_tokens = ex.feature_lists.feature_list[WORDS_FEAT_NAME]
@@ -209,7 +209,7 @@ def parse_example(example_proto):
     # so they can be batched
     context_features = {
         LEN_FEAT_NAME: tf.FixedLenFeature([1], dtype=tf.int64),
-        LABEL_FEAT_NAME: tf.FixedLenFeature([1], dtype=tf.int64)
+        LABEL_FEAT_NAME: tf.FixedLenFeature([1], dtype=tf.float32)
     }
 
     # Feature lists: words

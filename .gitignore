@@ -115,7 +115,8 @@ dmypy.json
 # Data files
 data/raw
 data/clean
-embeddings/*.txt
-embeddings/*.npy
-embeddings/*.index
+embeddings/*
+!embeddings/.gitkeep
+runs/*
+!runs/.gitkeep
 

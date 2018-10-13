@@ -124,9 +124,9 @@ def clean_data():
 
     return data_file, labels_file
 
-def load_embeddings():
+def load_embeddings(embeddings_file):
     """Load GloVe embeddings and export numpy array and word index (as dict)"""
-    embeddings_file_base = 'glove.6B.50d'
+    embeddings_file_base, _ = os.path.splitext(os.path.basename(embeddings_file))
     embeddings_file = embeddings_file_base + '.txt'
 
     # Initialize vocabulary with special tokens
@@ -147,14 +147,15 @@ def load_embeddings():
     # Store in numpy array and serialize
     embeddings = np.zeros([len(word_to_id), len(embeddings_list[0])])
     embeddings[2:] = embeddings_list
-    np.save(os.path.join(embeddings_path, embeddings_file_base), embeddings)
-    print('Saved {}'.format(embeddings_file_base + '.npy'))
+    npy_file = os.path.join(embeddings_path, embeddings_file_base) + '.npy'
+    np.save(npy_file, embeddings)
+    print('Saved {}'.format(npy_file))
 
     # Serialize dictionary
     index_name = embeddings_file_base + '.index'
     index_file = os.path.join(embeddings_path, index_name)
     pickle.dump(dict(word_to_id), open(index_file, 'wb'))
-    print('Saved {}'.format(index_name))
+    print('Saved {}'.format(index_file))
 
     return index_file
 
@@ -249,6 +250,6 @@ def make_dataset(tfrecord_file, batch_size):
     return dataset
 
 if __name__ == '__main__':
-    index_file = load_embeddings()
+    index_file = load_embeddings('embeddings/glove.6B.300d.txt')
     data_file, labels_file = clean_data()
     serialize_data(data_file, labels_file, index_file)

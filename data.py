@@ -188,13 +188,16 @@ def serialize_data(data_file, labels_file, index_file):
     data = [data[i] for i in idx]
     labels = [labels[i] for i in idx]
 
-    # Split into train and test
-    train_split = 0.8
+    # Split into train, dev and test
+    train_split = 0.7
+    dev_split = 0.2
     train_end_idx = int(train_split * len(data))
+    dev_end_idx = train_end_idx + int(dev_split * len(data))
 
     # Serialize splits
     save_to_tfrecord(data[:train_end_idx], labels[:train_end_idx], 'train')
-    save_to_tfrecord(data[train_end_idx:], labels[train_end_idx:], 'test')
+    save_to_tfrecord(data[train_end_idx:dev_end_idx], labels[train_end_idx:dev_end_idx], 'dev')
+    save_to_tfrecord(data[dev_end_idx:], labels[dev_end_idx:], 'test')
 
 def parse_example(example_proto):
     """Parse a serialized SequenceExample read from a TFRecord.
@@ -239,6 +242,7 @@ def make_dataset(tfrecord_file, batch_size):
         A tf.data.TFRecordDataset
     """
     dataset = tf.data.TFRecordDataset(tfrecord_file)
+    dataset = dataset.shuffle(buffer_size=1000)
     dataset = dataset.map(parse_example)
     padded_shapes = (
         tf.TensorShape([1]),  # length

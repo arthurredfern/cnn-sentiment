@@ -8,11 +8,10 @@ class CNNClassifier:
             convolutional layer.
         dropout_rate: float, dropout rate used before the last dense layer.
     """
-    def __init__(self, filter_sizes, dropout_rate):
+    def __init__(self, filter_sizes):
         self.filter_sizes = filter_sizes
-        self.drop_rate = dropout_rate
 
-    def build_graph(self, inputs, emb_array):
+    def build_graph(self, inputs, emb_array, dropout_rate):
         """Build the graph of the model.
         Args:
             inputs: tensor, mini-batch of word IDs for sentences
@@ -40,7 +39,7 @@ class CNNClassifier:
         with tf.name_scope('concat'):
             x = tf.concat(features, axis=1)
 
-        x = tf.layers.dropout(x, rate=self.drop_rate)
+        x = tf.layers.dropout(x, rate=dropout_rate)
         logit = tf.layers.dense(x, 1)
 
         return logit

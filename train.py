@@ -5,7 +5,7 @@ import tensorflow as tf
 import numpy as np
 
 from data import make_dataset
-from model import CNNClassifier
+from model import make_cnn_classifier
 
 def main():
     now = datetime.now().strftime('%Y-%m-%d-%H%M%S')
@@ -23,10 +23,8 @@ def main():
     # Model
     #emb_array = np.zeros((400002, 10))
     emb_array = np.load('embeddings/glove.6B.300d.npy')
-    filter_sizes = [3, 4, 5]
-    model = CNNClassifier(filter_sizes)
     dropout_rate = tf.placeholder_with_default(0.0, shape=[])
-    logits = model.build_graph(words, emb_array, dropout_rate)
+    logits = make_cnn_classifier(words, emb_array, dropout_rate)
 
     with tf.name_scope('loss'):
         loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels,
@@ -42,12 +40,14 @@ def main():
 
     logdir = os.path.join('runs', now)
     writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
+    saver = tf.train.Saver()
 
     n_epochs = 10
     steps = 0
+    best_dev_accuracy = 0
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        for epoch in range(n_epochs):
+        for epoch in range(1, n_epochs + 1):
             print('Epoch {:d}'.format(epoch))
             sess.run(train_iterator_init)
             try:
@@ -77,6 +77,11 @@ def main():
             acc_summ = tf.Summary()
             acc_summ.value.add(tag='dev/accuracy', simple_value=avg_accuracy)
             writer.add_summary(acc_summ, global_step=steps)
+
+            # Create checkpoint for best model in dev set
+            if avg_accuracy > best_dev_accuracy:
+                best_dev_accuracy = avg_accuracy
+                saver.save(sess, os.path.join(logdir, 'ckpt'), global_step=epoch)
 
     writer.close()
 

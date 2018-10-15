@@ -126,13 +126,21 @@ def clean_data():
 
 def load_embeddings(embeddings_file):
     """Load GloVe embeddings and export numpy array and word index (as dict)"""
+    def save_index(filename, index):
+        """Write to disk a dictionary mapping words to IDs or viceversa"""
+        index_file = os.path.join(embeddings_path, filename)
+        pickle.dump(index, open(index_file, 'wb'))
+        print('Saved {}'.format(index_file))
+        return index_file
+
     embeddings_file_base, _ = os.path.splitext(os.path.basename(embeddings_file))
     embeddings_file = embeddings_file_base + '.txt'
 
     # Initialize vocabulary with special tokens
     word_to_id = defaultdict(lambda: len(word_to_id))
-    _ = word_to_id[PAD]
-    _ = word_to_id[UNK]
+    id_to_word = dict()
+    id_to_word[word_to_id[PAD]] = PAD
+    id_to_word[word_to_id[UNK]] = UNK
 
     embeddings_list = []
 
@@ -141,7 +149,7 @@ def load_embeddings(embeddings_file):
         for i, line in enumerate(emb_file):
             # First element is word, the rest is embedding as sequence of float
             values = line.strip().split()
-            _ = word_to_id[values[0]]
+            id_to_word[word_to_id[values[0]]] = values[0]
             embeddings_list.append(list(map(float, values[1:])))
 
     # Store in numpy array and serialize
@@ -151,13 +159,13 @@ def load_embeddings(embeddings_file):
     np.save(npy_file, embeddings)
     print('Saved {}'.format(npy_file))
 
-    # Serialize dictionary
-    index_name = embeddings_file_base + '.index'
-    index_file = os.path.join(embeddings_path, index_name)
-    pickle.dump(dict(word_to_id), open(index_file, 'wb'))
-    print('Saved {}'.format(index_file))
+    # Serialize dictionaries
+    word_to_id_name = embeddings_file_base + '.wti'
+    word_to_id_file = save_index(word_to_id_name, dict(word_to_id))
+    id_to_word_name = embeddings_file_base + '.itw'
+    id_to_word_file = save_index(id_to_word_name, id_to_word)
 
-    return index_file
+    return word_to_id_file, id_to_word_file
 
 def serialize_data(data_file, labels_file, index_file):
     """Read clean data and labels file and export TFRecords containing
@@ -242,11 +250,10 @@ def make_dataset(tfrecord_file, batch_size):
         A tf.data.TFRecordDataset
     """
     dataset = tf.data.TFRecordDataset(tfrecord_file)
-    dataset = dataset.shuffle(buffer_size=1000)
     dataset = dataset.map(parse_example)
     padded_shapes = (
-        tf.TensorShape([1]),  # length
-        tf.TensorShape([1]),  # label
+        tf.TensorShape([1]),    # length
+        tf.TensorShape([1]),    # label
         tf.TensorShape([None])  # words
     )
     dataset = dataset.padded_batch(batch_size, padded_shapes)
@@ -254,6 +261,6 @@ def make_dataset(tfrecord_file, batch_size):
     return dataset
 
 if __name__ == '__main__':
-    index_file = load_embeddings('embeddings/glove.6B.300d.txt')
+    index_file, _ = load_embeddings('embeddings/glove.6B.300d.txt')
     data_file, labels_file = clean_data()
     serialize_data(data_file, labels_file, index_file)

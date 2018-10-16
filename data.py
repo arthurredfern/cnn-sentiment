@@ -83,8 +83,9 @@ def clean_data():
     labels = ''
 
     for file in files:
-        with open(os.path.join(raw_data_path, file)) as in_file:
-            for i, line in enumerate(in_file):
+        with open(os.path.join(raw_data_path, file), 'rb') as in_file:
+            for i, line_bytes in enumerate(in_file):
+                line = line_bytes.decode('utf-8')
                 # Omit comment lines or review titles
                 if len(line) < 2 or line.startswith(omit_symbols):
                     continue

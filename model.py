@@ -26,8 +26,7 @@ def make_cnn_classifier(inputs, emb_array, dropout_rate):
         with tf.name_scope('max-time-pool{}'.format(i + 1)):
             features.append(tf.reduce_max(f, axis=1))
 
-    with tf.name_scope('concat'):
-        x = tf.concat(features, axis=1)
+    x = tf.concat(features, axis=1)
 
     x = tf.layers.dropout(x, rate=dropout_rate)
     logit = tf.layers.dense(x, 1)

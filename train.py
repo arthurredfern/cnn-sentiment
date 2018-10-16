@@ -68,7 +68,7 @@ def main():
     writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
     saver = tf.train.Saver()
 
-    n_epochs = 20
+    n_epochs = 10
     steps = 0
     best_dev_accuracy = 0
     with tf.Session() as sess:
@@ -87,6 +87,7 @@ def main():
                     writer.add_summary(loss_summ, global_step=steps)
                     print('\rloss: {:.4f} accuracy: {:.4f}'.format(
                         loss_val, acc_val), end='', flush=True)
+                    break
             except tf.errors.OutOfRangeError:
                 pass
 
@@ -102,23 +103,15 @@ def main():
                 best_dev_accuracy = avg_accuracy
                 saver.save(sess, os.path.join(logdir, 'ckpt'), global_step=epoch)
 
-    writer.close()
-
-    # Training finished, evaluate on test set and export
-    print('Testing and exporting...')
-    with tf.Session() as sess:
+        print('Testing on best model on dev set')
         saver.restore(sess, tf.train.latest_checkpoint(logdir))
         avg_accuracy = eval_accuracy(sess, accuracy, test_iterator_init)
         print('Test accuracy: {:.4f}'.format(avg_accuracy))
+        acc_summ = tf.Summary()
+        acc_summ.value.add(tag='test/accuracy', simple_value=avg_accuracy)
+        writer.add_summary(acc_summ)
 
-        # Export best model as SavedModel
-        export_dir = os.path.join(logdir, 'saved_model')
-        builder = tf.saved_model.builder.SavedModelBuilder(export_dir)
-        builder.add_meta_graph_and_variables(sess,
-            [tf.saved_model.tag_constants.SERVING],
-            main_op=tf.tables_initializer())
-        builder.save()
-
+    writer.close()
 
 if __name__ == '__main__':
     main()

@@ -4,6 +4,8 @@ import pickle
 
 from data import UNK
 
+# TODO: Handle with args
+
 # Load mapping from words (str) to IDs (int)
 word_to_id = pickle.load(open('embeddings/glove.6B.300d.wti', 'rb'))
 id_to_word = pickle.load(open('embeddings/glove.6B.300d.itw', 'rb'))
@@ -21,11 +23,14 @@ _, sequence = tf.parse_single_sequence_example(serialized_tf_example,
 input_words = tf.identity(sequence['input_words'], name='input_words')
 word_ids = tf.expand_dims(table.lookup(input_words), axis=0)
 
+checkpoint = tf.train.latest_checkpoint('./runs/2018-10-16-100126/')
+# Load graph mapping input tensor
+saver = tf.train.import_meta_graph(checkpoint + '.meta', input_map={'data/words:0': word_ids})
+prediction = tf.get_default_graph().get_tensor_by_name('accuracy/prediction:0')
+
 with tf.Session() as sess:
-    # Load trained model, connecting the input of the model that takes word IDs
-    tf.saved_model.loader.load(sess, [tf.saved_model.tag_constants.SERVING],
-    'runs/2018-10-15-181557/saved_model/', input_map={'data/words:0': word_ids})
-    prediction = tf.get_default_graph().get_tensor_by_name('accuracy/prediction:0')
+    tf.tables_initializer().run()
+    saver.restore(sess, checkpoint)
 
     # Export signatures
     words_tensor_info = tf.saved_model.utils.build_tensor_info(serialized_tf_example)
@@ -37,7 +42,7 @@ with tf.Session() as sess:
            method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
 
     # Export model for serving
-    export_dir = os.path.join('export', 'saved_model')
+    export_dir = os.path.join('export', '6')
     builder = tf.saved_model.builder.SavedModelBuilder(export_dir)
     builder.add_meta_graph_and_variables(
        sess,
@@ -48,7 +53,3 @@ with tf.Session() as sess:
        main_op=tf.tables_initializer()
     )
     builder.save()
-
-# Save graph to verify its structure with TensorBoard
-writer = tf.summary.FileWriter('export', tf.get_default_graph())
-writer.close()

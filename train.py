@@ -68,7 +68,7 @@ def main():
     writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
     saver = tf.train.Saver()
 
-    n_epochs = 10
+    n_epochs = 20
     steps = 0
     best_dev_accuracy = 0
     with tf.Session() as sess:
@@ -87,7 +87,6 @@ def main():
                     writer.add_summary(loss_summ, global_step=steps)
                     print('\rloss: {:.4f} accuracy: {:.4f}'.format(
                         loss_val, acc_val), end='', flush=True)
-                    break
             except tf.errors.OutOfRangeError:
                 pass
 

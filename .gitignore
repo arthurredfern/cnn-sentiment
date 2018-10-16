@@ -119,4 +119,5 @@ embeddings/*
 !embeddings/.gitkeep
 runs/*
 !runs/.gitkeep
-
+servables/*
+!servables/.gitkeep

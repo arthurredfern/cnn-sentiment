@@ -107,7 +107,8 @@ def clean_data():
                 net_value = sum(map(lambda x: int(x[1:-1]), values))
                 sentiment = 1 if net_value >= 0 else 0
 
-                data += review
+                # Convert to lower case before saving
+                data += review.lower()
                 labels += str(sentiment) + '\n'
 
                 if i == 10:

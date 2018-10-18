@@ -8,7 +8,19 @@ from data import UNK
 SERVABLES_PATH = './servables/'
 
 def get_new_version():
-
+    """Get next version of servable as (max_v + 1) where max_v is the maximum
+    version found in the servables folder.
+    """
+    new_version = 1
+    for fname in os.listdir(SERVABLES_PATH):
+        if os.path.isdir(os.path.join(SERVABLES_PATH, fname)):
+            try:
+                version = int(fname)
+            except ValueError:
+                continue
+            if version >= new_version:
+                new_version = version + 1
+    return str(new_version)
 
 def export_ckpt(ckpt_path):
     """Exports a SavedModel to the servables folder using the checkpoint at the
@@ -48,7 +60,7 @@ def export_ckpt(ckpt_path):
                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
 
         # Export model for serving
-        export_dir = os.path.join('servables', '2')
+        export_dir = os.path.join(SERVABLES_PATH, get_new_version())
         builder = tf.saved_model.builder.SavedModelBuilder(export_dir)
         builder.add_meta_graph_and_variables(
            sess,

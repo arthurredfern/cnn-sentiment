@@ -1,4 +1,5 @@
 import os
+import subprocess
 from datetime import datetime
 
 import tensorflow as tf
@@ -46,8 +47,8 @@ def main():
         test_iterator_init = iterator.make_initializer(test_data)
 
     # Model
-    #emb_array = np.zeros((400002, 10))
-    emb_array = np.load('embeddings/glove.6B.300d.npy')
+    emb_array = np.zeros((400002, 10))
+    #emb_array = np.load('embeddings/glove.6B.300d.npy')
     dropout_rate = tf.placeholder_with_default(0.0, shape=[])
     logits = make_cnn_classifier(words, emb_array, dropout_rate)
 
@@ -68,7 +69,7 @@ def main():
     writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
     saver = tf.train.Saver()
 
-    n_epochs = 20
+    n_epochs = 1
     steps = 0
     best_dev_accuracy = 0
     with tf.Session() as sess:
@@ -87,6 +88,7 @@ def main():
                     writer.add_summary(loss_summ, global_step=steps)
                     print('\rloss: {:.4f} accuracy: {:.4f}'.format(
                         loss_val, acc_val), end='', flush=True)
+                    break
             except tf.errors.OutOfRangeError:
                 pass
 
@@ -103,12 +105,23 @@ def main():
                 saver.save(sess, os.path.join(logdir, 'ckpt'), global_step=epoch)
 
         print('Testing on best model on dev set')
-        saver.restore(sess, tf.train.latest_checkpoint(logdir))
+        latest_checkpoint = tf.train.latest_checkpoint(logdir)
+        saver.restore(sess, latest_checkpoint)
         avg_accuracy = eval_accuracy(sess, accuracy, test_iterator_init)
         print('Test accuracy: {:.4f}'.format(avg_accuracy))
         acc_summ = tf.Summary()
         acc_summ.value.add(tag='test/accuracy', simple_value=avg_accuracy)
         writer.add_summary(acc_summ)
+
+        # Serialize GraphDef for use with freeze_graph
+        graph_def_name = 'graph_def.pb'
+        graph_def_path = os.path.join(logdir, graph_def_name)
+        frozen_graph_name = 'graph_frozen.pb'
+        tf.train.write_graph(tf.get_default_graph().as_graph_def(),
+                             logdir, 'graph_def.pb', as_text=False)
+        # Freeze graph
+        subprocess.call(['./freeze_graph.sh', graph_def_path,
+                         latest_checkpoint, 'accuracy/prediction'])
 
     writer.close()
 

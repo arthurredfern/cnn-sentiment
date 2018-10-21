@@ -19,7 +19,7 @@ def make_cnn_classifier(inputs, emb_array, dropout_rate):
     filter_sizes = [3, 4, 5]
     for i, filter_size in enumerate(filter_sizes):
         # Convolution
-        f = tf.layers.conv1d(x, filters=100, kernel_size=3,
+        f = tf.layers.conv1d(x, filters=100, kernel_size=filter_size,
                                        padding='same', activation=tf.nn.relu,
                               name='conv{}'.format(i + 1))
         # Max-pooling over time

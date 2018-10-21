@@ -4,7 +4,7 @@
 
 This repository contains a TensorFlow implementation based on the paper *Convolutional Neural Networks for Sentence Classification* by Yoon Kim.
 
-<div style="text-align:center;">
+<div align="center">
 <img src='img/model.png' height="400"></br></br>
 </div>
 

@@ -1,3 +1,12 @@
+"""Trains a CNN model on the Customer Review dataset.
+The data is fed to the model from TFRecords. The model is trained on
+mini-batches using Adam. Every time the accuracy on the dev set increases, a
+checkpoint is created (therefore the latest checkpoint will always correspond
+to the model with best accuracy in the dev set).
+The best model is exported as a frozen graph with all the training nodes
+removed, so it can be saved as a SavedModel for use with TensorFlow Serving.
+"""
+
 import os
 import subprocess
 from datetime import datetime
@@ -30,9 +39,10 @@ def eval_accuracy(sess, accuracy, iterator_init):
     avg_accuracy /= count
     return avg_accuracy
 
-def main():
+def train():
     now = datetime.now().strftime('%Y-%m-%d-%H%M%S')
 
+    # Prepare data readers
     with tf.name_scope('data'):
         train_data = make_dataset('data/clean/train.tfrecord', batch_size=64)
         dev_data = make_dataset('data/clean/dev.tfrecord', batch_size=128)
@@ -47,8 +57,8 @@ def main():
         test_iterator_init = iterator.make_initializer(test_data)
 
     # Model
-    emb_array = np.zeros((400002, 10))
-    #emb_array = np.load('embeddings/glove.6B.300d.npy')
+    #emb_array = np.zeros((400002, 10))
+    emb_array = np.load('embeddings/glove.6B.300d.npy')
     dropout_rate = tf.placeholder_with_default(0.0, shape=[])
     logits = make_cnn_classifier(words, emb_array, dropout_rate)
 
@@ -69,7 +79,7 @@ def main():
     writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
     saver = tf.train.Saver()
 
-    n_epochs = 1
+    n_epochs = 15
     steps = 0
     best_dev_accuracy = 0
     with tf.Session() as sess:
@@ -88,7 +98,6 @@ def main():
                     writer.add_summary(loss_summ, global_step=steps)
                     print('\rloss: {:.4f} accuracy: {:.4f}'.format(
                         loss_val, acc_val), end='', flush=True)
-                    break
             except tf.errors.OutOfRangeError:
                 pass
 
@@ -104,6 +113,7 @@ def main():
                 best_dev_accuracy = avg_accuracy
                 saver.save(sess, os.path.join(logdir, 'ckpt'), global_step=epoch)
 
+        # Restore the checkpoint with highest accuracy on dev set
         print('Testing on best model on dev set')
         latest_checkpoint = tf.train.latest_checkpoint(logdir)
         saver.restore(sess, latest_checkpoint)
@@ -114,11 +124,10 @@ def main():
         writer.add_summary(acc_summ)
 
         # Serialize GraphDef for use with freeze_graph
-        graph_def_name = 'graph_def.pb'
+        graph_def_name = os.path.basename(latest_checkpoint) + '.pb'
         graph_def_path = os.path.join(logdir, graph_def_name)
-        frozen_graph_name = 'graph_frozen.pb'
         tf.train.write_graph(tf.get_default_graph().as_graph_def(),
-                             logdir, 'graph_def.pb', as_text=False)
+                             logdir, graph_def_name, as_text=False)
         # Freeze graph
         subprocess.call(['./freeze_graph.sh', graph_def_path,
                          latest_checkpoint, 'prediction/predicted'])
@@ -126,4 +135,4 @@ def main():
     writer.close()
 
 if __name__ == '__main__':
-    main()
+    train()

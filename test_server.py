@@ -7,6 +7,8 @@ is being served properly.
 import requests
 import numpy as np
 
+# We assume the ModelServer is running and exported a REST
+# API at port 8501
 url = 'http://localhost:8501/v1/models/default:predict'
 predictions = []
 with open('data/clean/data.txt') as file:

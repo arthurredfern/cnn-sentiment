@@ -1,6 +1,11 @@
+"""Exports a frozen graph as a SavedModel for use with TensorFlow Serving.
+Input nodes are added to the graph so the classifier can handle raw text.
+"""
+
 import os
 import argparse
 import tensorflow as tf
+from tensorflow.python.platform import gfile
 import pickle
 
 from data import UNK
@@ -40,13 +45,16 @@ def export_ckpt(ckpt_path):
     word_ids = tf.expand_dims(table.lookup(split_words), axis=0)
 
     checkpoint = tf.train.latest_checkpoint(ckpt_path)
-    # Load graph mapping input tensor
-    saver = tf.train.import_meta_graph(checkpoint + '.meta', input_map={'data/words:0': word_ids})
-    prediction = tf.get_default_graph().get_tensor_by_name('accuracy/prediction:0')
+    # Load graph, mapping input tensor
+    frozen_graph_path = checkpoint + '.pb.frz'
+    with gfile.FastGFile(frozen_graph_path, 'rb') as f:
+        graph_def = tf.GraphDef()
+        graph_def.ParseFromString(f.read())
+        g_in = tf.import_graph_def(graph_def, name='', input_map={'data/words:0': word_ids})
+    prediction = tf.get_default_graph().get_tensor_by_name('prediction/predicted:0')
 
     with tf.Session() as sess:
         tf.tables_initializer().run()
-        saver.restore(sess, checkpoint)
 
         # Export signatures
         words_tensor_info = tf.saved_model.utils.build_tensor_info(input_words)

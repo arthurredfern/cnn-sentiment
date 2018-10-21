@@ -59,9 +59,9 @@ def main():
         loss_summary = tf.summary.scalar('loss', loss)
     objective = tf.train.AdamOptimizer().minimize(loss)
 
-    with tf.name_scope('accuracy'):
+    with tf.name_scope('prediction'):
         prediction = tf.nn.sigmoid(logits) > 0.5
-        prediction = tf.identity(prediction, name='prediction')
+        prediction = tf.identity(prediction, name='predicted')
         correct = tf.equal(tf.cast(prediction, tf.int32), tf.cast(labels, tf.int32))
         accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 
@@ -121,7 +121,7 @@ def main():
                              logdir, 'graph_def.pb', as_text=False)
         # Freeze graph
         subprocess.call(['./freeze_graph.sh', graph_def_path,
-                         latest_checkpoint, 'accuracy/prediction'])
+                         latest_checkpoint, 'prediction/predicted'])
 
     writer.close()
 
